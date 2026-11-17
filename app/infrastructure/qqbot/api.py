@@ -146,6 +146,12 @@ class QqBotAPI:
             raise QqBotAPIError("no_gateway", "官方未返回 WebSocket 接入点", path="/gateway")
         return url
 
+    # ==================== 机器人 / 用户信息 ====================
+
+    async def user_info(self, user_openid: str) -> dict:
+        """获取用户基本信息（2026-11-16 新增；无好友关系时 40184001）。"""
+        return await self.request("GET", f"/v2/users/{user_openid}/info")
+
     # ==================== 群管理（官方 2026 新增，部分内邀） ====================
 
     async def group_info(self, group_openid: str) -> dict:

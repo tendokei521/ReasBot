@@ -69,6 +69,15 @@ class FakeAPI:
     async def delete_c2c_message(self, target: str, message_id: str) -> dict:
         return {}
 
+    async def user_info(self, user_openid: str) -> dict:
+        self.calls.append(("user_info", str(user_openid), {}))
+        return {
+            "username": "小明",
+            "avatar": "https://example.com/a.png",
+            "union_openid": "UNION1",
+            "allow_proactive_msg": True,
+        }
+
 
 class FakeUploader:
     def __init__(self, *, fail: bool = False) -> None:
@@ -169,6 +178,39 @@ async def test_active_message_disabled_by_default():
     conn = _conn()
     response = await conn.send_group_msg("G", "hi")
     assert response["retcode"] == "NO_PASSIVE_WINDOW"
+
+
+@pytest.mark.asyncio
+async def test_at_everyone_uses_official_send_syntax():
+    """官方发送侧 @全体用 <qqbot-at-everyone />（2026-10-26），不是 <@all>。"""
+    conn = _conn()
+    conn.inbox.remember_inbound("group", "G", "M1")
+    response = await conn.send_group_msg("G", [
+        {"type": "text", "data": {"text": "集合"}},
+        {"type": "at", "data": {"qq": "all"}},
+    ])
+    assert response["status"] == "ok"
+    payload = conn.api.calls[0][2]
+    assert payload["content"] == "集合<qqbot-at-everyone />"
+
+
+@pytest.mark.asyncio
+async def test_get_stranger_info_maps_official_user_info():
+    conn = _conn()
+    response = await conn.get_stranger_info("OPENID1")
+    assert response["status"] == "ok"
+    data = response["data"]
+    assert data["user_id"] == "OPENID1"
+    assert data["nickname"] == "小明"
+    assert data["avatar"] == "https://example.com/a.png"
+    assert data["allow_proactive_msg"] is True
+
+
+@pytest.mark.asyncio
+async def test_call_api_maps_get_stranger_info():
+    conn = _conn()
+    response = await conn.call_api("get_stranger_info", {"user_id": "OPENID2"})
+    assert response and response["status"] == "ok"
 
 
 @pytest.mark.asyncio

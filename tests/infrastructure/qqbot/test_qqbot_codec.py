@@ -81,6 +81,32 @@ def test_attachments_become_image_segments():
     assert images and images[0].data["file"] == "https://example.com/a.png"
 
 
+def test_group_author_prefers_member_nickname():
+    data = _group_payload(author={
+        "member_openid": "MEM_A",
+        "username": "QQ昵称",
+        "member_nickname": "群昵称",
+        "member_role": "member",
+    })
+    event = decode_event("GROUP_AT_MESSAGE_CREATE", data, FakeBot())
+    assert event.user.nickname == "群昵称"
+    assert event.user.card == "群昵称"
+
+
+def test_voice_attachment_uses_wav_url_and_asr():
+    data = _group_payload(attachments=[{
+        "content_type": "voice",
+        "url": "https://example.com/a.silk",
+        "voice_wav_url": "https://example.com/a.wav",
+        "asr_refer_text": "识别出来的话",
+    }])
+    event = decode_event("GROUP_AT_MESSAGE_CREATE", data, FakeBot())
+    records = [seg for seg in event.message if seg.type == "record"]
+    assert records
+    assert records[0].data["file"] == "https://example.com/a.wav"
+    assert records[0].data["asr"] == "识别出来的话"
+
+
 def test_quoted_message_becomes_readable_prefix():
     data = _group_payload(
         message_type=103,

@@ -23,6 +23,8 @@ def test_onebot_supports_any_action():
 def test_qqbot_only_supports_whitelisted_actions():
     assert supports_action(PROTOCOL_QQBOT, "send_group_msg") is True
     assert supports_action(PROTOCOL_QQBOT, "delete_msg") is True
+    # 2026-11-16 官方新增用户信息接口：映射到 OneBot get_stranger_info
+    assert supports_action(PROTOCOL_QQBOT, "get_stranger_info") is True
     assert supports_action(PROTOCOL_QQBOT, "send_poke") is False
     assert supports_action(PROTOCOL_QQBOT, "") is False
 

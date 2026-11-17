@@ -86,7 +86,16 @@ def _attachment_segments(attachments: Any) -> list[MessageSegment]:
                 "height": item.get("height", 0),
             }))
         elif content_type == "voice":
-            segments.append(MessageSegment("record", {"file": url, "url": url}))
+            # 2026-11-16 起附件带 voice_wav_url（SILK 转 WAV）与 asr_refer_text：
+            # 优先给模型 WAV（可直接转写/理解），原始 SILK 链接仍放 url 备查。
+            wav = str(item.get("voice_wav_url") or "").strip()
+            record: dict = {"file": wav or url, "url": url}
+            if wav:
+                record["voice_url"] = wav
+            asr = str(item.get("asr_refer_text") or "").strip()
+            if asr:
+                record["asr"] = asr
+            segments.append(MessageSegment("record", record))
         elif content_type.startswith("video/"):
             segments.append(MessageSegment("video", {"file": url, "url": url}))
         else:
@@ -121,6 +130,11 @@ def _base_fields(data: dict, bot: Any, event_type: str, message_type: str) -> di
     role_raw = str(author.get("member_role") or "").strip().lower()
     role = {"owner": "owner", "admin": "admin"}.get(role_raw, "member")
     self_id = str(getattr(bot, "bot_id", "") or "")
+    # 2026-11-16：群消息 author 新增 member_nickname（群内昵称）与 avatar；
+    # 单聊/群聊的 username 仍是「QQ 昵称」。展示名优先群昵称，其次用户名。
+    nickname = str(
+        author.get("member_nickname") or author.get("nickname") or author.get("username") or ""
+    )
     return dict(
         event_type=event_type,
         post_type="message",
@@ -140,8 +154,8 @@ def _base_fields(data: dict, bot: Any, event_type: str, message_type: str) -> di
         raw=data,
         user=UserInfo(
             user_id=user_id,
-            nickname=str(author.get("username") or ""),
-            card=str(author.get("username") or ""),
+            nickname=nickname,
+            card=nickname,
             role=role,
         ),
     )

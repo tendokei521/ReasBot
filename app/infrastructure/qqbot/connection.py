@@ -231,7 +231,8 @@ class QqBotConnection(IBot):
                 parts.append(str(seg.data.get("text") or ""))
             elif seg.type == "at":
                 target = str(seg.data.get("qq") or "")
-                parts.append("<@all>" if target == "all" else f"<@{target}>")
+                # 官方发送侧语法（2026-10-26）：@全体用 <qqbot-at-everyone />，不是 <@all>
+                parts.append("<qqbot-at-everyone />" if target == "all" else f"<@{target}>")
             elif seg.type == "reply":
                 continue  # 被动回复已经用 msg_id 表达，正文不重复引用标记
             else:
@@ -362,6 +363,26 @@ class QqBotConnection(IBot):
     async def get_status(self) -> dict:
         return _ok({"online": self.status == "connected", "good": self.status == "connected"})
 
+    async def get_stranger_info(self, user_id: Any, no_cache: bool = False) -> dict:
+        """用户基本信息（官方 2026-11-16 新增 `GET /v2/users/{openid}/info`）。
+
+        返回 OneBot `get_stranger_info` 形状；无好友关系时官方返回 40184001，
+        原样透出错误码给调用方降级。
+        """
+        try:
+            data = await self.api.user_info(str(user_id))
+        except QqBotAPIError as e:
+            return _failed(e.code, e.message)
+        return _ok({
+            "user_id": str(user_id),
+            "nickname": str((data or {}).get("username") or ""),
+            "sex": "unknown",
+            "age": 0,
+            "avatar": str((data or {}).get("avatar") or ""),
+            "union_openid": str((data or {}).get("union_openid") or ""),
+            "allow_proactive_msg": bool((data or {}).get("allow_proactive_msg")),
+        })
+
     # ---------- 群信息 / 群成员 ----------
     async def get_group_info(self, group_id: Any, no_cache: bool = False) -> dict:
         """官方群基本信息（需要「群信息」接口权限；无权限时返回失败并由调用方降级）。"""
@@ -465,6 +486,8 @@ class QqBotConnection(IBot):
                 )
             if action == "get_status":
                 return await self.get_status()
+            if action == "get_stranger_info":
+                return await self.get_stranger_info(params.get("user_id"))
         except CapabilityUnavailableError as e:
             return _failed("capability_unsupported", str(e))
         return _failed("capability_unsupported", unsupported_message(self.protocol, action))

@@ -50,6 +50,8 @@ QQBOT_ACTIONS: frozenset[str] = frozenset({
     "set_group_ban",
     "set_group_kick",
     "get_status",
+    # 2026-11-16 官方新增 GET /v2/users/{openid}/info
+    "get_stranger_info",
 })
 
 #: 协议 → 能响应的 action；``ALL_ACTIONS`` 表示不限制
@@ -123,6 +125,7 @@ def capability_view(protocol: Any) -> dict[str, Any]:
             "group_admin": True,
             "member_list": True,
             "proactive": True,
+            "user_info": True,
             "webhook": False,
         }
     return {
@@ -134,6 +137,7 @@ def capability_view(protocol: Any) -> dict[str, Any]:
         "group_admin": True,   # 禁言/踢人：需机器人是群管理员，成员管理可能内邀
         "member_list": True,   # 官方接口存在，但多数账号需内邀白名单（11253）
         "proactive": False,    # 被动回复模型；主动消息按配置单独开
+        "user_info": True,     # GET /v2/users/{openid}/info（2026-11-16；无好友关系 40184001）
         "webhook": True,
     }
 
