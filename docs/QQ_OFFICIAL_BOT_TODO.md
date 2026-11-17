@@ -3,10 +3,11 @@
 > 用途：跨会话/关机后续做的**唯一待办入口**。状态与代码同步，完成一项就改这里并提交。
 > 方案与架构见 [QQ_OFFICIAL_BOT.md](QQ_OFFICIAL_BOT.md)，协议事实见 [QQ_OFFICIAL_API.md](QQ_OFFICIAL_API.md)。
 
-## 0. 一句话状态（2026-11-11 更新）
+## 0. 一句话状态（2026-11-17 更新）
 
-Phase 0 / 1 / 2 与 Phase 3（Webhook + 主动消息开关/日配额）**已落地**；全量 pytest 2926 passed。
-剩余：**真机联调**（需要 AppID/AppSecret）、per-account 主动消息 UI、前端截图重验。
+Phase 0 / 1 / 2 / 3 **已落地**；已跟进官方 2026-08 ~ 11-16 变更（用户信息、群昵称/头像、
+@全体发送语法、语音 WAV）。剩余：**真机联调**（需要 AppID/AppSecret）、per-account 主动消息 UI、
+以及下表列出的官方新接口（图文卡片、素材管理、入群审批、黑名单等）。
 工作区提交后即 clean，可随时关机。
 
 ## 1. 已完成（按提交）
@@ -53,7 +54,14 @@ Phase 0 / 1 / 2 与 Phase 3（Webhook + 主动消息开关/日配额）**已落�
 
 ### P1 收尾开发
 
-- [x] 主动消息（2026-11-11）：`.env` 开关 `QQBOT_ALLOW_ACTIVE_MESSAGE`（默认 false）+ 每群/用户日配额 `QQBOT_ACTIVE_DAILY_LIMIT`（默认 20）；窗口外超限返回 `ACTIVE_QUOTA_EXCEEDED`。
+- [x] 官方 2026-08~11-16 文档跟进（2026-11-17）：用户信息 `get_stranger_info`；群消息 `member_nickname` 优先；语音 `voice_wav_url`/`asr_refer_text`；发送侧 @全体改 `<qqbot-at-everyone />`。详见 `docs/QQ_OFFICIAL_API.md` §8。
+- [ ] 官方新接口（按价值排序，均尚未实现）：
+  - [ ] 图文卡片消息（2026-10-28，发送侧 `card`）与 markdown 发送（含 `force_verify_image_resource`）；
+  - [ ] 素材管理（2026-10-21）：图片上传平台 → `qqbot-media://`，供 markdown 引用；
+  - [ ] 群成员信息 / 群黑名单查询与操作（2026-09-03）；
+  - [ ] 群禁言状态查询、入群申请列表/审批/自动审批策略（2026-08-12）；
+  - [ ] 自定义菜单、指令面板管理（2026-08-12）。
+- [ ] `union_openid` / `union_group_openid` / `avatar` 建模进领域事件（目前只在 `event.raw`，跨应用关联用不了）。
 - [ ] 主动消息 per-account 配置与 `GROUP_MSG_REJECT/RECEIVE`、`C2C_MSG_REJECT/RECEIVE` 事件持久化（用户/群主关闭后自动停发）。
 - [x] 单聊 `stream_messages` 评估：**不做**。群聊没有流式发送接口；单聊需要额外维护流式会话与 msg_seq 语义，收益低于成本，官方账号继续单条整段发送。
 - [x] WebUI 能力矩阵：工具总览（每工具 `available/reason_text`）+ 账号卡片 `capability_notes` + OneBot 工具页整页拦截，已覆盖「哪些工具在官方账号可用」。

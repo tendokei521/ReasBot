@@ -1,6 +1,6 @@
 # 《QQ 开放平台官方机器人 API 调研》
 
-> 调研时间 2026-11，以 bot.q.qq.com/wiki（更新至 2026-10/11）为准。**接口域名已统一为 `https://api.bot.qq.com`（2026-08-10 变更记录），旧文 `api.sgroup.qq.com`、`bots.qq.com` 已失效；与社区旧文冲突处，以官方文档为准。**
+> 调研时间 2026-11，以 bot.q.qq.com/wiki 为准（**已核对至 2026-11-16 变更记录**）。**接口域名已统一为 `https://api.bot.qq.com`（2026-08-10 变更记录），旧文 `api.sgroup.qq.com`、`bots.qq.com` 已失效；与社区旧文冲突处，以官方文档为准。**
 
 ## 1. 鉴权
 
@@ -33,7 +33,7 @@
 
 **事件**：`GROUP_AT_MESSAGE_CREATE`（默认，仅 @）、`GROUP_MESSAGE_CREATE`（全量模式，需群主开启）、`C2C_MESSAGE_CREATE`、`GROUP_ADD_ROBOT`/`GROUP_DEL_ROBOT`、`GROUP_MSG_RECEIVE`/`REJECT`、`FRIEND_ADD`/`FRIEND_DEL`、`C2C_MSG_RECEIVE`/`REJECT`、`GROUP_MEMBER_ADD`/`REMOVE`、`GROUP_JOIN_REQUEST`。全部走 `1<<25`。
 
-**字段**：`id`、`content`（已去 @机器人 前缀；@某人 为 `<@member_openid>`）、`group_openid`、`author{member_openid|user_openid, username, member_role, bot}`、`timestamp`（RFC3339 东八区，**非**旧文 Unix 秒；`GROUP_ADD_ROBOT` 例外仍为秒）、`message_type`（0 文本/3 卡片/102 聊天记录/103 引用）、`attachments[]{url, filename, size, content_type, voice_wav_url, asr_refer_text}`、`mentions`、`ark_data`、`msg_elements`、`message_scene{source, ext[]}`。
+**字段**：`id`、`content`（已去 @机器人 前缀；@某人 为 `<@member_openid>`，**@全体 在接收侧为 `<@all>`**）、`group_openid`、`union_group_openid`（跨应用群标识，2026-11-16 新增，绑定三方应用时有效）、`author{member_openid|user_openid, username, member_nickname, avatar, union_openid, member_role, bot}`（`member_nickname` / `avatar` / `union_openid` 为 2026-11-16 新增）、`timestamp`（RFC3339 东八区，**非**旧文 Unix 秒；`GROUP_ADD_ROBOT` 例外仍为秒）、`message_type`（0 文本/3 卡片/102 聊天记录/103 引用）、`attachments[]{url, filename, size, content_type, voice_wav_url, asr_refer_text}`、`mentions`（`scope=all` 表示 @全体）、`ark_data`、`msg_elements`、`message_scene{source, ext[]}`。
 
 **发消息**：`POST /v2/groups/{group_openid}/messages`、`POST /v2/users/{openid}/messages`。body：`msg_type`（群 0/2/7/8；单聊另有 6=输入中）、`content`、`markdown{content, force_verify_image_resource}`、`media{file_info}`、`keyboard{id|content.rows}`、`message_reference{message_id}`、`card{type:"tuwen", content}`、`msg_id`、`event_id`、`msg_seq`、`is_wakeup`（仅单聊）、`input_notify`。**v2 群/单聊发送侧无 `ark`、`embed`**（结构化卡片只能收不能发）。
 `msg_id` 与 `event_id` 二选一；`event_id` 仅支持 `INTERACTION_CREATE`、`GROUP_ADD_ROBOT`/`GROUP_MSG_RECEIVE`、`FRIEND_ADD`/`C2C_MSG_RECEIVE`。
@@ -44,7 +44,7 @@
 
 **撤回**：`DELETE /v2/groups/{group_openid}/messages/{message_id}`，2 分钟内；管理员可撤普通成员消息，普通成员只能撤自己的。
 
-**@ 与格式**：`<qqbot-at-user id="member_openid" />`（群聊仅 markdown 支持）、`<qqbot-at-everyone />`（文本/markdown，需管理员，每群每天 1 次）；`<@userid>`、`@everyone` 即将弃用。`<emoji:id>` 仅频道。Markdown 已全量开放（2026-04-23），频道需内邀。**文本字数上限官方未给（仅错误码 40054007）→ 未确认**。
+**@ 与格式**：发送侧 `@某人` 用 `<@member_openid>`（文本）或 `<qqbot-at-user id="member_openid" />`（markdown）；发送侧 `@全体` 用 `<qqbot-at-everyone />`（文本/markdown，需管理员，每群每天 1 次，2026-10-26 新增）。**接收侧 content 里 @全体 是 `<@all>`**，两者不要混用；`<@userid>`、`@everyone` 即将弃用。`<emoji:id>` 仅频道。Markdown 已全量开放（2026-04-23），频道需内邀。**文本字数上限官方未给（仅错误码 40054007）→ 未确认**。
 
 ## 4. 权限与上架
 
@@ -94,7 +94,24 @@ Webhook 超时与重试次数；`content` 字数上限；主动消息每月配�
 > **实测（2026-11-11）**：`parts[].index` 从 **1** 开始（文档写 0 起），且分片偏移必须按返回顺序累计，
 > 不能用 `index × block_size`（否则第一片算成空片，合并报 `40034002 媒体文件格式不支持`）。
 
-## 8. 来源
+## 8. 2026-08 ~ 2026-11-16 变更记录与适配状态
+
+| 日期 | 官方变更 | 本适配器状态 |
+|---|---|---|
+| 2026-11-16 | 新增 `GET /v2/users/{user_openid}/info`（union_openid / username / avatar / allow_proactive_msg；无好友关系 `40184001`） | ✅ 已接：`get_stranger_info`（OneBot action 兼容） |
+| 2026-11-16 | 单聊/群聊事件补发送者昵称、头像；群消息 `author.member_nickname`；事件/群信息新增 `union_group_openid` | ✅ 昵称优先用 `member_nickname`（群内昵称）；`avatar` / `union_*` 保留在 `event.raw`，未建模 |
+| 2026-10-28 | 群聊/单聊新增**图文卡片消息**（发送侧 `card`） | ❌ 未实现（当前只发文本/富媒体） |
+| 2026-10-26 | 文本/markdown 支持 `<qqbot-at-everyone />` @全体（需管理员，每群每天 1 次） | ✅ 已修：发送侧 at-all 用该标签（接收侧仍是 `<@all>`） |
+| 2026-10-21 | 素材管理：图片上传平台 → `qqbot-media://` 引用（供 markdown） | ❌ 未实现 |
+| 2026-09-16 | 分享链接接口字段修正；`ark_type` 新增 `picture` | 接收 `ark_data` 已在 `raw`；发送/分享链接未做 |
+| 2026-09-03 | 群成员列表 / 成员信息 / 批量移除 / 群黑名单查询与操作 | ✅ 列表/批量移除已接；❌ 成员信息、黑名单未接 |
+| 2026-08-12 | 自定义菜单、指令面板管理接口 | ❌ 未实现 |
+| 2026-08-12 | markdown 新增 `force_verify_image_resource`；群禁言**查询**；入群申请审批与自动审批策略；用户入群申请事件 | 禁言设置已接、查询未接；markdown 未发；入群审批未接（事件已透传 notice） |
+| 2026-08-10 | 接口域名统一 `api.bot.qq.com` | ✅ 已用 |
+
+> 约定：**已列 ✅ 的才算「官机已有能力」**；❌ 项不写进 `QQBOT_ACTIONS`，调用会被能力闸门拒绝，避免"看起来支持、实际 404"。
+
+## 9. 来源
 
 - 鉴权/调用：https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/access-token.html ；https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/api-call-guide.html
 - 事件与 op 码：https://bot.q.qq.com/wiki/develop/api-v2/dev-prepare/event-emit/payload.html ；.../event-emit/websocket.html ；.../event-emit/webhook.html
@@ -112,3 +129,6 @@ Webhook 超时与重试次数；`content` 字数上限；主动消息每月配�
 - 富媒体分片：https://bot.q.qq.com/wiki/develop/api-v2/autogen/api/v2_groups_group_id_upload_prepare.post.html ；.../v2_groups_group_id_upload_part_finish.post.html ；.../v2_groups_group_openid_files.post.html
 - 上架/认证/IP 白名单：https://bot.q.qq.com/wiki/ ；https://bot.q.qq.com/wiki/bot_FAQ/
 - 变更记录：https://bot.q.qq.com/wiki/develop/api-v2/changelog.html
+- 用户基本信息（2026-11-16）：https://bot.q.qq.com/wiki/develop/api-v2/autogen/api/v2_users_user_openid_info.get.html
+- 群消息事件（含 member_nickname / union_group_openid）：https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/group_message_create.html
+- 单聊事件：https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/c2c_message_create.html

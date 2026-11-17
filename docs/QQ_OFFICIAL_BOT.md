@@ -4,8 +4,8 @@
 > 事实基线：2026-11 官方文档（`https://api.bot.qq.com`，接口域名 2026-08-10 迁移）；
 > 协议细节与来源见 [QQ_OFFICIAL_API.md](QQ_OFFICIAL_API.md)。本文只写**改造方案**，不重复抄接口表。
 >
-> 状态（2026-11-10）：**Phase 0 / 1 / 2 与 Phase 3 Webhook 已落地**；剩余为真机联调与收尾
-> （主动消息配额、单聊流式评估、能力矩阵页、README 章节）。**待办见
+> 状态（2026-11-17）：**Phase 0 / 1 / 2 / 3 已落地**，并已跟进官方 2026-08 ~ 11-16 变更
+> （用户信息、群昵称/头像、@全体发送语法、语音 WAV）。**待办见
 > [QQ_OFFICIAL_BOT_TODO.md](QQ_OFFICIAL_BOT_TODO.md)**（唯一入口，随代码更新）。
 
 ## 0. 实施状态（与代码同步）
@@ -17,6 +17,7 @@
 | Phase 2 富媒体/群能力 | ✅ 完成 | `qqbot/media.py`（URL 上传 + 本地分片上传 → `file_info` → `msg_type=7`）、`get_group_info/get_group_member_list/set_group_ban/set_group_kick` |
 | Phase 3 Webhook | ✅ 完成 | `qqbot/webhook.py`（Ed25519）、`app/webui/api/qqbot_webhook.py`（公开回调 / op13 / op12）、gateway 无长连接在线 |
 | Phase 3 收尾 | ✅ 完成 | 主动消息 `.env` 开关 + 每群/用户日配额（默认关）；能力矩阵用工具总览 `reason_text` + 账号卡片备注呈现；单聊 `stream_messages` 评估为不做（群无流式、收益低） |
+| 2026-08~11 API 跟进 | ✅ 完成 | 用户信息 `get_stranger_info`；群消息 `member_nickname` 优先；语音 `voice_wav_url`/`asr_refer_text`；发送侧 @全体改 `<qqbot-at-everyone />`；`union_*` 保留在 raw |
 
 ---
 
@@ -317,7 +318,8 @@ GET /api/bots → bot_info(): protocol + capabilities + capability_notes
 - `CapabilityUnavailableError(ValueError)`：带 `protocol / capability / message`。
 
 官方账号第一版的能力集合：`send_group_msg`、`send_private_msg`、`send_msg`、
-`delete_msg`、`get_login_info`、`get_group_list`（**模拟**，见 §3.7.5）。
+`delete_msg`、`get_login_info`、`get_stranger_info`（2026-11-16 用户信息）、
+`get_group_list`（**模拟**，见 §3.7.5）。
 群管理/成员列表等按实测与内邀权限（`11253`）再逐步加入。
 
 `IBot` 增加：`protocol`、`supports(action)`、`require(action)`（不支持即抛）、
